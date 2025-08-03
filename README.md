@@ -34,7 +34,7 @@ with **real-time LAN monitoring**.
 ## 🏗️ How to Run
 1. Clone this repo:
    ```bash
-   git clone https://github.com/YourUsername/CyberNeural-IDS.git
+   git clone https://github.com/Dharun-prasath/CyberNeural-IDS.git
    cd CyberNeural-IDS
 
 2. Run Project:
