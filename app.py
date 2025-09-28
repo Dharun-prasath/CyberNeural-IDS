@@ -49,8 +49,7 @@ def predict_csv():
         y_pred_classes = np.argmax(y_pred_prob, axis=1)
         y_pred_labels = le_attack.inverse_transform(y_pred_classes)
 
-        summary = {}
-        summary['total_samples'] = len(df)
+        summary = {'total_samples': len(df)}
         summary['unknown_attacks'] = int(np.sum(unknown_flags))
 
         known_mask = ~unknown_flags
