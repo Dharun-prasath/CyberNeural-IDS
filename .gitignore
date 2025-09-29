@@ -59,6 +59,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 package-lock.json
+package-lock.json
+package.json
 yarn.lock
 .npm
 .eslintcache
