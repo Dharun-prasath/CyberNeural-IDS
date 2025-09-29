@@ -17,6 +17,16 @@ le_attack = joblib.load('models/le_attack.save')
 
 threshold = 0.02
 
+@app.route('/')
+def home():
+    return jsonify({
+        "message": "CyberNeural-IDS API is running",
+        "endpoints": {
+            "/predict_csv": "POST - Upload CSV file for malicious detection analysis"
+        },
+        "status": "active"
+    })
+
 @app.route('/predict_csv', methods=['POST'])
 def predict_csv():
     if 'file' not in request.files:
