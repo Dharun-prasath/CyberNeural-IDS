@@ -1,5 +1,5 @@
 // Dashboard.tsx
-import React, { useState, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   Box,
   CssBaseline,
@@ -23,12 +23,10 @@ import {
   TableCell,
   TableBody,
   Switch,
-  useTheme,
   Slide,
   Fade,
   TextField,
 } from '@mui/material';
-import Grid from '@mui/material/Grid';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 import Papa from 'papaparse';
@@ -36,6 +34,8 @@ import DownloadIcon from '@mui/icons-material/Download';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { styled } from '@mui/material/styles';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { PieChart } from '@mui/x-charts/PieChart';
 
 // Custom styled-components
 const drawerWidth = 260;
@@ -60,23 +60,25 @@ const AnimatedPaper: React.FC<AnimatedPaperProps> = ({ children, ...props }) => 
 );
 
 // Helper functions
-const toCsvString = (rows: Array<{ deviceId: string; category?: string; count: number; status: string }>) =>
+const toCsvString = (rows: Array<{ category: string; count: number; status: string }>) =>
   [
-    ['Device ID', 'Category', 'Count', 'Status'],
-    ...rows.map(row => [row.deviceId, row.category || '-', row.count, row.status]),
+    ['Category', 'Count', 'Status'],
+    ...rows.map(row => [row.category, row.count, row.status]),
   ]
     .map(r => r.join(',')).join('\n');
 
 // Main Component
 const Dashboard: React.FC = () => {
-  const theme = useTheme();
+  const [mode, setMode] = useState<'light' | 'dark'>('light');
+  const theme = useMemo(() => createTheme({ palette: { mode } }), [mode]);
+  const darkMode = mode === 'dark';
+
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'error' | 'success' }>({ open: false, message: '', severity: 'success' });
   const [search, setSearch] = useState('');
-  const [darkMode, setDarkMode] = useState(theme.palette.mode === 'dark');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // CSV upload handler
@@ -124,9 +126,8 @@ const Dashboard: React.FC = () => {
         .filter(([key]) => key !== 'total_samples')
         .map(([key, value], idx) => ({
           id: idx + 1,
-          deviceId: key,
-          category: key === 'normal' ? 'Safe' : 'Malicious',
-          count: value,
+          category: key,
+          count: value as number,
           status: key === 'normal' ? 'Safe' : 'Malicious'
         }));
       setAnalysisResults(rows);
@@ -154,223 +155,252 @@ const Dashboard: React.FC = () => {
 
   // Columns for DataGrid
   const columns: GridColDef[] = [
-    { field: 'deviceId', headerName: 'Device ID', flex: 1 },
+    { field: 'category', headerName: 'Category', flex: 1 },
     { field: 'count', headerName: 'Count', flex: 1 },
     {
       field: 'status',
       headerName: 'Status',
       flex: 1,
-      cellClassName: (params) => params.value === 'Malicious' ? 'malicious' : 'safe',
     }
   ];
 
   // Search and filter logic
   const filteredResults = analysisResults.filter(row =>
-    row.deviceId.toLowerCase().includes(search.toLowerCase())
+    row.category.toLowerCase().includes(search.toLowerCase())
     || row.status.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Pie chart data
+  const pieData = useMemo(() => {
+    let safe = 0;
+    let malicious = 0;
+    analysisResults.forEach((row: { status: string; count: number }) => {
+      if (row.status === 'Safe') {
+        safe += row.count;
+      } else {
+        malicious += row.count;
+      }
+    });
+    return [
+      { id: 0, value: safe, label: 'Safe', color: 'green' },
+      { id: 1, value: malicious, label: 'Malicious', color: 'red' },
+    ];
+  }, [analysisResults]);
+
   // Handle theme toggling
-  const handleThemeToggle = () => setDarkMode((dm) => !dm);
+  const handleThemeToggle = () => setMode(mode === 'light' ? 'dark' : 'light');
 
   return (
-    <MainBox>
-      <CssBaseline />
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: {
-            width: drawerWidth, boxSizing: 'border-box',
-            backgroundColor: darkMode ? '#111' : '#1976d2',
-            color: '#fff'
-          },
-        }}
-      >
-        <Toolbar>
-          <Typography variant="h6" noWrap>L.A.N. Analyzer</Typography>
-        </Toolbar>
-        <List>
-          {['Dashboard', 'Reports', 'Settings'].map(text => (
-            <ListItem key={text} disablePadding>
-              <ListItemButton>
-                <ListItemText primary={text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
-          <ListItem>
-            <Switch
-              checked={darkMode}
-              onChange={handleThemeToggle}
-              color="default"
-              inputProps={{ 'aria-label': 'Switch theme' }}
-            />
-            <Typography variant="body2" sx={{ ml: 1 }}>{darkMode ? 'Dark Mode' : 'Light Mode'}</Typography>
-          </ListItem>
-        </List>
-      </Drawer>
-      <Box
-        component="main"
-        sx={{ flexGrow: 1, p: { xs: 1, sm: 3 }, width: `calc(100% - ${drawerWidth}px)` }}
-      >
-        <AppBar position="fixed" sx={{ zIndex: 1201, ml: `${drawerWidth}px` }}>
+    <ThemeProvider theme={theme}>
+      <MainBox>
+        <CssBaseline />
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            [`& .MuiDrawer-paper`]: {
+              width: drawerWidth, boxSizing: 'border-box',
+              backgroundColor: darkMode ? '#111' : '#1976d2',
+              color: '#fff'
+            },
+          }}
+        >
           <Toolbar>
-            <Typography variant="h6" noWrap component="div">
-              LAN Security Analyzer Dashboard
-            </Typography>
+            <Typography variant="h6" noWrap>L.A.N. Analyzer</Typography>
           </Toolbar>
-        </AppBar>
-        <Toolbar />
-
-        {/* CSV Upload */}
-        <AnimatedPaper sx={{ p: 2, mb: 2, borderRadius: 3 }}>
-          <Grid container alignItems="center" spacing={2}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>Upload CSV</Typography>
-              <Typography variant="body2" gutterBottom>
-                Upload a CSV file containing Device IDs for analysis.
-              </Typography>
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-                ref={fileInputRef}
-                style={{ display: 'none' }}
-                id="csv-upload"
-                aria-label="Upload CSV"
+          <List>
+            {['Dashboard', 'Reports', 'Settings'].map(text => (
+              <ListItem key={text} disablePadding>
+                <ListItemButton>
+                  <ListItemText primary={text} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+            <ListItem>
+              <Switch
+                checked={darkMode}
+                onChange={handleThemeToggle}
+                color="default"
+                inputProps={{ 'aria-label': 'Switch theme' }}
               />
-              <label htmlFor="csv-upload">
-                <Button
-                  variant="contained"
-                  component="span"
-                  startIcon={<FileUploadIcon />}
-                >
-                  Choose File
-                </Button>
-              </label>
-              {csvFile &&
-                <Button
-                  sx={{ ml: 1 }}
-                  variant="outlined"
-                  color="secondary"
-                  startIcon={<DeleteOutlineIcon />}
-                  onClick={clearFile}
-                  aria-label="Clear File"
-                >
-                  Clear
-                </Button>
-              }
-              {csvFile && (
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  Selected File: {csvFile.name}
-                </Typography>
-              )}
-            </Grid>
-            <Grid item xs={12} md={6} sx={{ textAlign: 'right' }}>
-              {analysisResults.length > 0 && (
-                <Button
-                  variant="outlined"
-                  color="success"
-                  startIcon={<DownloadIcon />}
-                  onClick={downloadResults}
-                  aria-label="Download Results"
-                >
-                  Download Results
-                </Button>
-              )}
-            </Grid>
-          </Grid>
-        </AnimatedPaper>
+              <Typography variant="body2" sx={{ ml: 1 }}>{darkMode ? 'Dark Mode' : 'Light Mode'}</Typography>
+            </ListItem>
+          </List>
+        </Drawer>
+        <Box
+          component="main"
+          sx={{ flexGrow: 1, p: { xs: 1, sm: 3 }, width: `calc(100% - ${drawerWidth}px)` }}
+        >
+          <AppBar position="fixed" sx={{ zIndex: 1201, ml: `${drawerWidth}px` }}>
+            <Toolbar>
+              <Typography variant="h6" noWrap component="div">
+                LAN Security Analyzer Dashboard
+              </Typography>
+            </Toolbar>
+          </AppBar>
+          <Toolbar />
 
-        {/* Preview Table */}
-        {previewData.length > 0 && (
-          <AnimatedPaper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Preview (First 10 Rows)
-            </Typography>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Device ID</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {previewData.map((row, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>
-                        {row['Device ID'] || row['ID'] || `Device-${idx + 1}`}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <Box sx={{ textAlign: 'right', mt: 2 }}>
-              <Button variant="contained" color="primary" onClick={analyzeCSV}>
-                Analyze CSV
-              </Button>
+          {/* CSV Upload */}
+          <AnimatedPaper sx={{ p: 2, mb: 2, borderRadius: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
+                <Typography variant="h6" gutterBottom>Upload CSV</Typography>
+                <Typography variant="body2" gutterBottom>
+                  Upload a CSV file containing Device IDs for analysis.
+                </Typography>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  id="csv-upload"
+                  aria-label="Upload CSV"
+                />
+                <label htmlFor="csv-upload">
+                  <Button
+                    variant="contained"
+                    component="span"
+                    startIcon={<FileUploadIcon />}
+                  >
+                    Choose File
+                  </Button>
+                </label>
+                {csvFile &&
+                  <Button
+                    sx={{ ml: 1 }}
+                    variant="outlined"
+                    color="secondary"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={clearFile}
+                    aria-label="Clear File"
+                  >
+                    Clear
+                  </Button>
+                }
+                {csvFile && (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Selected File: {csvFile.name}
+                  </Typography>
+                )}
+              </Box>
+              <Box sx={{ flex: '0 0 auto', textAlign: 'right' }}>
+                {analysisResults.length > 0 && (
+                  <Button
+                    variant="outlined"
+                    color="success"
+                    startIcon={<DownloadIcon />}
+                    onClick={downloadResults}
+                    aria-label="Download Results"
+                  >
+                    Download Results
+                  </Button>
+                )}
+              </Box>
             </Box>
           </AnimatedPaper>
-        )}
 
-        {/* Search Results */}
-        {analysisResults.length > 0 && (
-          <Slide direction="up" in>
-            <AnimatedPaper sx={{ p: 2, borderRadius: 3, minHeight: 390 }}>
+          {/* Preview Table */}
+          {previewData.length > 0 && (
+            <AnimatedPaper sx={{ p: 2, mb: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Malicious Detection Results
+                Preview (First 10 Rows)
               </Typography>
-              <TextField
-                label="Search Device"
-                size="small"
-                sx={{ mb: 2 }}
-                variant="outlined"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                fullWidth
-              />
-              <DataGrid
-                rows={filteredResults}
-                columns={columns}
-                getRowClassName={(params) => params.row.status === 'Malicious' ? 'malicious-row' : 'safe-row'}
-                sx={{
-                  height: 320,
-                  '.malicious-row': { bgcolor: '#f8d7da', color: '#721c24' },
-                  '.safe-row': { bgcolor: '#d4edda', color: '#155724' },
-                }}
-                initialState={{ pagination: { paginationModel: { pageSize: 5 } } }}
-                pageSizeOptions={[5, 10, 25]}
-                autoHeight
-                disableColumnMenu
-              />
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Device ID</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {previewData.map((row, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>
+                          {row['Device ID'] || row['ID'] || `Device-${idx + 1}`}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Box sx={{ textAlign: 'right', mt: 2 }}>
+                <Button variant="contained" color="primary" onClick={analyzeCSV}>
+                  Analyze CSV
+                </Button>
+              </Box>
             </AnimatedPaper>
-          </Slide>
-        )}
+          )}
 
-        {/* Loading indicator */}
-        {loading && (
-          <Fade in>
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-              <CircularProgress size={44} />
-            </Box>
-          </Fade>
-        )}
+          {/* Search Results */}
+          {analysisResults.length > 0 && (
+            <Slide direction="up" in>
+              <AnimatedPaper sx={{ p: 2, borderRadius: 3, minHeight: 390 }}>
+                <Typography variant="h6" gutterBottom>
+                  Malicious Detection Results
+                </Typography>
+                <TextField
+                  label="Search Category"
+                  size="small"
+                  sx={{ mb: 2 }}
+                  variant="outlined"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  fullWidth
+                />
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                  <Box sx={{ flex: '1 1 500px', minWidth: 0 }}>
+                    <DataGrid
+                      rows={filteredResults}
+                      columns={columns}
+                      getRowClassName={(params) => params.row.status === 'Malicious' ? 'malicious-row' : 'safe-row'}
+                      sx={{
+                        height: 320,
+                        '.malicious-row': { bgcolor: '#f8d7da', color: '#721c24' },
+                        '.safe-row': { bgcolor: '#d4edda', color: '#155724' },
+                      }}
+                      initialState={{ pagination: { paginationModel: { pageSize: 5 } } }}
+                      pageSizeOptions={[5, 10, 25]}
+                      autoHeight
+                      disableColumnMenu
+                    />
+                  </Box>
+                  <Box sx={{ flex: '0 0 300px' }}>
+                    <PieChart
+                      series={[{ data: pieData }]}
+                      width={300}
+                      height={200}
+                    />
+                  </Box>
+                </Box>
+              </AnimatedPaper>
+            </Slide>
+          )}
 
-        {/* Snackbar notifications */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={3500}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        >
-          <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </MainBox>
+          {/* Loading indicator */}
+          {loading && (
+            <Fade in>
+              <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+                <CircularProgress size={44} />
+              </Box>
+            </Fade>
+          )}
+
+          {/* Snackbar notifications */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={3500}
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          >
+            <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </Box>
+      </MainBox>
+    </ThemeProvider>
   );
 };
 
