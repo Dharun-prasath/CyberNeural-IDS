@@ -1,4 +1,4 @@
-// Dashboard.tsx
+// Dashboard.tsx - Professional LAN Security Analyzer
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   Box,
@@ -11,6 +11,7 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  ListItemIcon,
   Paper,
   Button,
   CircularProgress,
@@ -26,6 +27,11 @@ import {
   Slide,
   Fade,
   TextField,
+  Chip,
+  Tooltip,
+  IconButton,
+  Divider,
+  LinearProgress,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
@@ -33,136 +39,380 @@ import Papa from 'papaparse';
 import DownloadIcon from '@mui/icons-material/Download';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import InfoIcon from '@mui/icons-material/Info';
+import SecurityIcon from '@mui/icons-material/Security';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import SettingsIcon from '@mui/icons-material/Settings';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { styled } from '@mui/material/styles';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { PieChart } from '@mui/x-charts/PieChart';
 
-// Custom styled-components
+// Custom styled components with professional design
 const drawerWidth = 260;
+
 const MainBox = styled(Box)(({ theme }) => ({
   display: 'flex',
   minHeight: '100vh',
   background: theme.palette.mode === 'dark'
-    ? 'linear-gradient(120deg, #212121 70%, #1976d2 100%)'
-    : 'linear-gradient(120deg, #e3f2fd 60%, #fffde7 100%)',
+    ? 'linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #01579b 100%)'
+    : 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 50%, #90caf9 100%)',
+}));
+
+const StyledDrawer = styled(Drawer)(({ theme }) => ({
+  width: drawerWidth,
+  flexShrink: 0,
+  '& .MuiDrawer-paper': {
+    width: drawerWidth,
+    boxSizing: 'border-box',
+    backgroundColor: theme.palette.mode === 'dark' ? '#1a237e' : '#1976d2',
+    color: '#ffffff',
+    borderRight: 'none',
+    boxShadow: '4px 0 12px rgba(0,0,0,0.15)',
+  },
+}));
+
+const StyledAppBar = styled(AppBar)(({ theme }) => ({
+  backgroundColor: theme.palette.mode === 'dark' ? '#0d47a1' : '#1976d2',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+}));
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  borderRadius: theme.spacing(2),
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    transform: 'translateY(-4px)',
+    boxShadow: theme.palette.mode === 'dark' 
+      ? '0 8px 24px rgba(0,0,0,0.4)'
+      : '0 8px 24px rgba(0,0,0,0.15)',
+  },
 }));
 
 import type { ReactNode } from 'react';
 
+// Enhanced Props Interface
 interface AnimatedPaperProps extends React.ComponentProps<typeof Paper> {
   children: ReactNode;
 }
 
-const AnimatedPaper: React.FC<AnimatedPaperProps> = ({ children, ...props }) => (
+// Professional Animated Paper Component
+const AnimatedPaper: React.FC<AnimatedPaperProps> = ({ children, sx, ...props }) => (
   <Fade in timeout={350}>
-    <Paper elevation={4} {...props}>{children}</Paper>
+    <StyledPaper elevation={6} sx={sx} {...props}>
+      {children}
+    </StyledPaper>
   </Fade>
 );
 
-// Helper functions
+// Statistical Summary Interface
+interface AnalysisStats {
+  totalSamples: number;
+  normalCount: number;
+  threatCount: number;
+  threatPercentage: number;
+}
+
+// Helper function to format large numbers
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toString();
+};
+
+// Helper function to convert analysis results to CSV
 const toCsvString = (rows: Array<{ category: string; count: number; status: string }>) =>
   [
-    ['Category', 'Count', 'Status'],
-    ...rows.map(row => [row.category, row.count, row.status]),
+    ['Category', 'Count', 'Status', 'Percentage'],
+    ...rows.map(row => {
+      const total = rows.reduce((sum, r) => sum + r.count, 0);
+      const percentage = ((row.count / total) * 100).toFixed(2);
+      return [row.category, row.count, row.status, `${percentage}%`];
+    }),
   ]
     .map(r => r.join(',')).join('\n');
 
-// Main Component
+// Calculate statistics from analysis results
+const calculateStats = (results: Array<{ status: string; count: number }>): AnalysisStats => {
+  const totalSamples = results.reduce((sum, row) => sum + row.count, 0);
+  const normalCount = results.find(row => row.status === 'Safe')?.count || 0;
+  const threatCount = totalSamples - normalCount;
+  const threatPercentage = totalSamples > 0 ? (threatCount / totalSamples) * 100 : 0;
+  
+  return {
+    totalSamples,
+    normalCount,
+    threatCount,
+    threatPercentage,
+  };
+};
+
+// Main Component with Enhanced Features
 const Dashboard: React.FC = () => {
+  // Theme state with improved palette
   const [mode, setMode] = useState<'light' | 'dark'>('light');
-  const theme = useMemo(() => createTheme({ palette: { mode } }), [mode]);
+  const theme = useMemo(() => createTheme({ 
+    palette: { 
+      mode,
+      primary: {
+        main: mode === 'dark' ? '#64b5f6' : '#1976d2',
+        light: mode === 'dark' ? '#90caf9' : '#42a5f5',
+        dark: mode === 'dark' ? '#1976d2' : '#1565c0',
+      },
+      secondary: {
+        main: mode === 'dark' ? '#81c784' : '#388e3c',
+      },
+      success: {
+        main: '#4caf50',
+      },
+      error: {
+        main: '#f44336',
+      },
+      background: {
+        default: mode === 'dark' ? '#121212' : '#fafafa',
+        paper: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+      },
+    },
+    typography: {
+      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+      h6: {
+        fontWeight: 600,
+      },
+    },
+    shape: {
+      borderRadius: 12,
+    },
+  }), [mode]);
+  
   const darkMode = mode === 'dark';
 
+  // Core application state
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'error' | 'success' }>({ open: false, message: '', severity: 'success' });
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'error' | 'success' | 'info' | 'warning';
+  }>({ 
+    open: false, 
+    message: '', 
+    severity: 'success' 
+  });
   const [search, setSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // CSV upload handler
+  // Calculate statistics
+  const stats = useMemo(() => calculateStats(analysisResults), [analysisResults]);
+
+  // Enhanced CSV upload handler with validation
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!['text/csv', 'application/vnd.ms-excel'].includes(file.type)) {
-      setSnackbar({ open: true, message: 'Only CSV files are allowed!', severity: 'error' });
+    
+    // Validate file type
+    if (!['text/csv', 'application/vnd.ms-excel'].includes(file.type) && !file.name.endsWith('.csv')) {
+      setSnackbar({ 
+        open: true, 
+        message: 'Invalid file type. Please upload a CSV file.', 
+        severity: 'error' 
+      });
       return;
     }
+    
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setSnackbar({ 
+        open: true, 
+        message: 'File size exceeds 10MB limit. Please upload a smaller file.', 
+        severity: 'error' 
+      });
+      return;
+    }
+    
     setCsvFile(file);
+    setSnackbar({ 
+      open: true, 
+      message: 'File uploaded successfully. Processing preview...', 
+      severity: 'info' 
+    });
+    
+    // Parse CSV with improved error handling
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
+        if (results.data.length === 0) {
+          setSnackbar({
+            open: true, 
+            message: 'CSV file is empty. Please upload a file with data.', 
+            severity: 'warning'
+          });
+          return;
+        }
         setPreviewData(results.data.slice(0, 10));
+        setSnackbar({ 
+          open: true, 
+          message: `Preview loaded: ${results.data.length} rows found`, 
+          severity: 'success' 
+        });
       },
       error: (err) => {
-        setSnackbar({open: true, message: err.message, severity: 'error'});
+        setSnackbar({
+          open: true, 
+          message: `Error parsing CSV: ${err.message}`, 
+          severity: 'error'
+        });
+        setCsvFile(null);
       }
     });
   }, []);
 
-  const clearFile = () => {
+  // Clear file with user confirmation
+  const clearFile = useCallback(() => {
     setCsvFile(null);
     setPreviewData([]);
     setAnalysisResults([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+    setSnackbar({ 
+      open: true, 
+      message: 'File cleared successfully', 
+      severity: 'info' 
+    });
+  }, []);
 
+  // Enhanced CSV analysis with better error handling
   const analyzeCSV = async () => {
     if (!csvFile) {
-      setSnackbar({open: true, message: 'Please select a CSV file first.', severity: 'error'});
+      setSnackbar({
+        open: true, 
+        message: 'Please select a CSV file first.', 
+        severity: 'warning'
+      });
       return;
     }
+    
     setLoading(true);
+    setUploadProgress(0);
+    
     try {
       const formData = new FormData();
       formData.append('file', csvFile);
-      const response = await fetch('http://localhost:5000/predict_csv', { method: 'POST', body: formData });
+      
+      setUploadProgress(30);
+      
+      const response = await fetch('http://localhost:5000/predict_csv', { 
+        method: 'POST', 
+        body: formData 
+      });
+      
+      setUploadProgress(70);
+      
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Error analyzing CSV');
-      // Transform summary => table rows
+      
+      if (!response.ok) {
+        throw new Error(data.error || `Server error: ${response.status}`);
+      }
+      
+      setUploadProgress(90);
+      
+      // Transform summary into table rows with enhanced data
       const rows = Object.entries(data.summary)
         .filter(([key]) => key !== 'total_samples')
         .map(([key, value], idx) => ({
           id: idx + 1,
-          category: key,
+          category: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
           count: value as number,
           status: key === 'normal' ? 'Safe' : 'Malicious'
         }));
+      
       setAnalysisResults(rows);
-      setSnackbar({open: true, message: 'Analysis complete!', severity: 'success'});
-    } catch (err) {
-      const errorMessage = typeof err === 'object' && err !== null && 'message' in err
-        ? (err as { message?: string }).message || 'Server error'
-        : 'Server error';
-      setSnackbar({open: true, message: errorMessage, severity: 'error'});
+      setUploadProgress(100);
+      
+      const threatCount = rows.filter(r => r.status === 'Malicious').length;
+      setSnackbar({
+        open: true, 
+        message: `Analysis complete! Found ${threatCount} threat categories.`, 
+        severity: 'success'
+      });
+    } catch (err: any) {
+      console.error('Analysis error:', err);
+      setSnackbar({
+        open: true, 
+        message: err.message || 'Server error. Please ensure the Flask backend is running.', 
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
+      setTimeout(() => setUploadProgress(0), 1000);
     }
   };
 
-  const downloadResults = () => {
+  // Download results with enhanced metadata
+  const downloadResults = useCallback(() => {
     const csvString = toCsvString(analysisResults);
-    const blob = new Blob([csvString], { type: 'text/csv' });
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const href = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.download = 'analysis_results.csv';
+    const timestamp = new Date().toISOString().split('T')[0];
+    a.download = `lan_security_analysis_${timestamp}.csv`;
     a.href = href;
     a.click();
     URL.revokeObjectURL(href);
-  };
+    
+    setSnackbar({ 
+      open: true, 
+      message: 'Results exported successfully', 
+      severity: 'success' 
+    });
+  }, [analysisResults]);
 
-  // Columns for DataGrid
-  const columns: GridColDef[] = [
-    { field: 'category', headerName: 'Category', flex: 1 },
-    { field: 'count', headerName: 'Count', flex: 1 },
+  // Enhanced DataGrid columns with custom rendering
+  const columns: GridColDef[] = useMemo(() => [
+    { 
+      field: 'category', 
+      headerName: 'Threat Category', 
+      flex: 1,
+      minWidth: 150,
+    },
+    { 
+      field: 'count', 
+      headerName: 'Count', 
+      flex: 0.5,
+      minWidth: 100,
+      type: 'number',
+      renderCell: (params) => (
+        <Chip 
+          label={formatNumber(params.value as number)}
+          size="small"
+          color="primary"
+          variant="outlined"
+        />
+      ),
+    },
     {
       field: 'status',
       headerName: 'Status',
-      flex: 1,
+      flex: 0.7,
+      minWidth: 120,
+      renderCell: (params) => (
+        <Chip 
+          label={params.value}
+          size="small"
+          color={params.value === 'Safe' ? 'success' : 'error'}
+          icon={params.value === 'Safe' ? <SecurityIcon /> : <InfoIcon />}
+        />
+      ),
     }
-  ];
+  ], []);
 
   // Search and filter logic
   const filteredResults = analysisResults.filter(row =>
@@ -170,7 +420,7 @@ const Dashboard: React.FC = () => {
     || row.status.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Pie chart data
+  // Enhanced pie chart data with professional colors
   const pieData = useMemo(() => {
     let safe = 0;
     let malicious = 0;
@@ -182,63 +432,86 @@ const Dashboard: React.FC = () => {
       }
     });
     return [
-      { id: 0, value: safe, label: 'Safe', color: 'green' },
-      { id: 1, value: malicious, label: 'Malicious', color: 'red' },
+      { 
+        id: 0, 
+        value: safe, 
+        label: `Safe (${safe})`, 
+        color: '#4caf50' 
+      },
+      { 
+        id: 1, 
+        value: malicious, 
+        label: `Malicious (${malicious})`, 
+        color: '#f44336' 
+      },
     ];
   }, [analysisResults]);
 
-  // Handle theme toggling
-  const handleThemeToggle = () => setMode(mode === 'light' ? 'dark' : 'light');
+  // Theme toggle handler
+  const handleThemeToggle = useCallback(() => {
+    setMode(prevMode => prevMode === 'light' ? 'dark' : 'light');
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>
       <MainBox>
         <CssBaseline />
-        <Drawer
+        <StyledDrawer
           variant="permanent"
           sx={{
             width: drawerWidth,
             flexShrink: 0,
             [`& .MuiDrawer-paper`]: {
               width: drawerWidth, boxSizing: 'border-box',
-              backgroundColor: darkMode ? '#111' : '#1976d2',
-              color: '#fff'
             },
           }}
         >
           <Toolbar>
-            <Typography variant="h6" noWrap>L.A.N. Analyzer</Typography>
+            <SecurityIcon sx={{ mr: 1 }} />
+            <Typography variant="h6" noWrap sx={{ fontWeight: 600 }}>L.A.N. Analyzer</Typography>
           </Toolbar>
+          <Divider />
           <List>
-            {['Dashboard', 'Reports', 'Settings'].map(text => (
-              <ListItem key={text} disablePadding>
+            {[
+              { text: 'Dashboard', icon: <DashboardIcon /> },
+              { text: 'Reports', icon: <BarChartIcon /> },
+              { text: 'Settings', icon: <SettingsIcon /> }
+            ].map(item => (
+              <ListItem key={item.text} disablePadding>
                 <ListItemButton>
-                  <ListItemText primary={text} />
+                  <ListItemIcon sx={{ color: 'inherit' }}>
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText primary={item.text} />
                 </ListItemButton>
               </ListItem>
             ))}
+            <Divider sx={{ my: 1 }} />
             <ListItem>
-              <Switch
-                checked={darkMode}
-                onChange={handleThemeToggle}
-                color="default"
-                inputProps={{ 'aria-label': 'Switch theme' }}
-              />
+              <Tooltip title={`Switch to ${darkMode ? 'light' : 'dark'} mode`}>
+                <Switch
+                  checked={darkMode}
+                  onChange={handleThemeToggle}
+                  color="default"
+                  inputProps={{ 'aria-label': 'Switch theme' }}
+                />
+              </Tooltip>
               <Typography variant="body2" sx={{ ml: 1 }}>{darkMode ? 'Dark Mode' : 'Light Mode'}</Typography>
             </ListItem>
           </List>
-        </Drawer>
+        </StyledDrawer>
         <Box
           component="main"
           sx={{ flexGrow: 1, p: { xs: 1, sm: 3 }, width: `calc(100% - ${drawerWidth}px)` }}
         >
-          <AppBar position="fixed" sx={{ zIndex: 1201, ml: `${drawerWidth}px` }}>
+          <StyledAppBar position="fixed" sx={{ zIndex: 1201, ml: `${drawerWidth}px`, width: `calc(100% - ${drawerWidth}px)` }}>
             <Toolbar>
-              <Typography variant="h6" noWrap component="div">
+              <SecurityIcon sx={{ mr: 2, fontSize: 28 }} />
+              <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
                 LAN Security Analyzer Dashboard
               </Typography>
             </Toolbar>
-          </AppBar>
+          </StyledAppBar>
           <Toolbar />
 
           {/* CSV Upload */}
