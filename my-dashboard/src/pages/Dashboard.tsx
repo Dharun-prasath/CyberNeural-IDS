@@ -514,13 +514,16 @@ const Dashboard: React.FC = () => {
           </StyledAppBar>
           <Toolbar />
 
-          {/* CSV Upload */}
+          {/* CSV Upload Section with Enhanced UI */}
           <AnimatedPaper sx={{ p: 2, mb: 2, borderRadius: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
               <Box sx={{ flex: '1 1 400px', minWidth: 0 }}>
-                <Typography variant="h6" gutterBottom>Upload CSV</Typography>
-                <Typography variant="body2" gutterBottom>
-                  Upload a CSV file containing Device IDs for analysis.
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CloudUploadIcon color="primary" />
+                  Upload CSV File
+                </Typography>
+                <Typography variant="body2" gutterBottom color="text.secondary">
+                  Upload a CSV file containing Device IDs for security analysis. Maximum file size: 10MB.
                 </Typography>
                 <input
                   type="file"
@@ -536,6 +539,8 @@ const Dashboard: React.FC = () => {
                     variant="contained"
                     component="span"
                     startIcon={<FileUploadIcon />}
+                    disabled={loading}
+                    sx={{ textTransform: 'none', fontWeight: 600 }}
                   >
                     Choose File
                   </Button>
@@ -548,27 +553,43 @@ const Dashboard: React.FC = () => {
                     startIcon={<DeleteOutlineIcon />}
                     onClick={clearFile}
                     aria-label="Clear File"
+                    disabled={loading}
                   >
                     Clear
                   </Button>
                 }
                 {csvFile && (
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    Selected File: {csvFile.name}
-                  </Typography>
+                  <Chip 
+                    label={csvFile.name}
+                    icon={<InsertDriveFileIcon />}
+                    color="primary"
+                    variant="outlined"
+                    sx={{ mt: 1 }}
+                  />
+                )}
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <Box sx={{ mt: 2 }}>
+                    <LinearProgress variant="determinate" value={uploadProgress} />
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                      Processing: {uploadProgress}%
+                    </Typography>
+                  </Box>
                 )}
               </Box>
               <Box sx={{ flex: '0 0 auto', textAlign: 'right' }}>
                 {analysisResults.length > 0 && (
-                  <Button
-                    variant="outlined"
-                    color="success"
-                    startIcon={<DownloadIcon />}
-                    onClick={downloadResults}
-                    aria-label="Download Results"
-                  >
-                    Download Results
-                  </Button>
+                  <Tooltip title="Download analysis results as CSV">
+                    <Button
+                      variant="outlined"
+                      color="success"
+                      startIcon={<DownloadIcon />}
+                      onClick={downloadResults}
+                      aria-label="Download Results"
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                      Download Results
+                    </Button>
+                  </Tooltip>
                 )}
               </Box>
             </Box>
@@ -604,6 +625,77 @@ const Dashboard: React.FC = () => {
                 </Button>
               </Box>
             </AnimatedPaper>
+          )}
+
+          {/* Statistics Summary */}
+          {analysisResults.length > 0 && (
+            <Fade in>
+              <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                <StyledPaper 
+                  elevation={3}
+                  sx={{ 
+                    flex: '1 1 200px', 
+                    p: 2, 
+                    textAlign: 'center',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {formatNumber(stats.totalSamples)}
+                  </Typography>
+                  <Typography variant="body2">Total Samples</Typography>
+                </StyledPaper>
+                
+                <StyledPaper 
+                  elevation={3}
+                  sx={{ 
+                    flex: '1 1 200px', 
+                    p: 2, 
+                    textAlign: 'center',
+                    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {formatNumber(stats.threatCount)}
+                  </Typography>
+                  <Typography variant="body2">Threats Detected</Typography>
+                </StyledPaper>
+                
+                <StyledPaper 
+                  elevation={3}
+                  sx={{ 
+                    flex: '1 1 200px', 
+                    p: 2, 
+                    textAlign: 'center',
+                    background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {stats.threatPercentage.toFixed(1)}%
+                  </Typography>
+                  <Typography variant="body2">Threat Rate</Typography>
+                </StyledPaper>
+                
+                <StyledPaper 
+                  elevation={3}
+                  sx={{ 
+                    flex: '1 1 200px', 
+                    p: 2, 
+                    textAlign: 'center',
+                    background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {formatNumber(stats.normalCount)}
+                  </Typography>
+                  <Typography variant="body2">Safe Connections</Typography>
+                </StyledPaper>
+              </Box>
+            </Fade>
           )}
 
           {/* Search Results */}
@@ -651,23 +743,31 @@ const Dashboard: React.FC = () => {
             </Slide>
           )}
 
-          {/* Loading indicator */}
+          {/* Enhanced Loading Indicator */}
           {loading && (
             <Fade in>
-              <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
-                <CircularProgress size={44} />
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 4 }}>
+                <CircularProgress size={48} thickness={4} />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  Analyzing network traffic...
+                </Typography>
               </Box>
             </Fade>
           )}
 
-          {/* Snackbar notifications */}
+          {/* Enhanced Snackbar Notifications */}
           <Snackbar
             open={snackbar.open}
-            autoHideDuration={3500}
+            autoHideDuration={4000}
             onClose={() => setSnackbar({ ...snackbar, open: false })}
             anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
           >
-            <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+            <Alert 
+              severity={snackbar.severity} 
+              sx={{ width: '100%' }}
+              icon={snackbar.severity === 'success' ? <SecurityIcon /> : undefined}
+              variant="filled"
+            >
               {snackbar.message}
             </Alert>
           </Snackbar>
