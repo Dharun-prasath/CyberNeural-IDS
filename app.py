@@ -1,13 +1,45 @@
+"""
+CyberNeural-IDS Flask API
+Advanced Intrusion Detection System using Deep Learning
+"""
+
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 import joblib
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import logging
+import time
+from datetime import datetime
+from pathlib import Path
+from werkzeug.utils import secure_filename
+import os
 
+# Import configuration
+from config import (
+    APP_NAME, APP_VERSION, DEBUG_MODE, HOST, PORT,
+    MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS, RECONSTRUCTION_THRESHOLD,
+    AE_MODEL_PATH, CNN_LSTM_MODEL_PATH, SCALER_PATH, LABEL_ENCODER_PATH,
+    ERROR_MESSAGES, SUCCESS_MESSAGES, LOG_LEVEL, LOG_FORMAT,
+    CATEGORICAL_COLUMNS, CORS_ORIGINS
+)
+
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL),
+    format=LOG_FORMAT,
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Initialize Flask app
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=CORS_ORIGINS)
+app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE_MB * 1024 * 1024  # Set max file size
 
 # Load models & preprocessing
 ae_model = tf.keras.models.load_model('models/ae_model.h5', compile=False)
