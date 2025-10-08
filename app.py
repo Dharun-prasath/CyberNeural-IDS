@@ -204,53 +204,148 @@ def model_info():
 
 @app.route('/predict_csv', methods=['POST'])
 def predict_csv():
+    """
+    Analyze CSV file for network intrusion detection
+    Returns detailed analysis with attack classifications
+    """
+    start_time = time.time()
+    
+    # Check if models are loaded
+    if not models_loaded:
+        logger.error("Prediction attempted but models not loaded")
+        return jsonify({
+            "error": "Models not loaded",
+            "message": "Service is unavailable. Models failed to load."
+        }), 503
+    
+    # Validate file upload
     if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        logger.warning("No file in request")
+        return jsonify({"error": ERROR_MESSAGES['NO_FILE']}), 400
     
     file = request.files['file']
+    
     if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
+        logger.warning("Empty filename")
+        return jsonify({"error": ERROR_MESSAGES['EMPTY_FILE']}), 400
+    
+    # Validate file extension
+    if not allowed_file(file.filename):
+        logger.warning(f"Invalid file format: {file.filename}")
+        return jsonify({"error": ERROR_MESSAGES['INVALID_FORMAT']}), 400
+    
+    filename = secure_filename(file.filename)
+    logger.info(f"Processing file: {filename}")
     
     try:
+        # Read CSV file
         df = pd.read_csv(file)
-
-        cat_cols = ['protocol_type','service','flag']
-        df = pd.get_dummies(df, columns=cat_cols)
-
+        logger.info(f"CSV loaded: {len(df)} rows, {len(df.columns)} columns")
+        
+        # Validate CSV structure
+        is_valid, validation_message = validate_csv_structure(df)
+        if not is_valid:
+            logger.error(f"CSV validation failed: {validation_message}")
+            return jsonify({
+                "error": "Invalid CSV structure",
+                "message": validation_message
+            }), 400
+        
+        # One-hot encode categorical columns
+        df_encoded = pd.get_dummies(df, columns=CATEGORICAL_COLUMNS)
+        logger.info(f"Encoded features: {len(df_encoded.columns)} columns")
+        
+        # Align with training columns
         train_columns = scaler.feature_names_in_
         for col in train_columns:
-            if col not in df.columns:
-                df[col] = 0
-        df = df[train_columns]
-
-        X_scaled = scaler.transform(df.values)
-
-        X_recon = ae_model.predict(X_scaled)
+            if col not in df_encoded.columns:
+                df_encoded[col] = 0
+        df_encoded = df_encoded[train_columns]
+        
+        # Scale features
+        X_scaled = scaler.transform(df_encoded.values)
+        logger.info("Features scaled successfully")
+        
+        # Autoencoder prediction for anomaly detection
+        X_recon = ae_model.predict(X_scaled, verbose=0)
         recon_error = np.mean(np.power(X_scaled - X_recon, 2), axis=1)
-        unknown_flags = recon_error > threshold
-
+        unknown_flags = recon_error > RECONSTRUCTION_THRESHOLD
+        logger.info(f"Anomaly detection: {np.sum(unknown_flags)} unknown attacks detected")
+        
+        # CNN-LSTM prediction for known attack classification
         X_seq = X_scaled.reshape(X_scaled.shape[0], 1, X_scaled.shape[1])
-        y_pred_prob = cnn_lstm_model.predict(X_seq)
+        y_pred_prob = cnn_lstm_model.predict(X_seq, verbose=0)
         y_pred_classes = np.argmax(y_pred_prob, axis=1)
         y_pred_labels = le_attack.inverse_transform(y_pred_classes)
-
-        summary = {'total_samples': len(df)}
-        summary['unknown_attacks'] = int(np.sum(unknown_flags))
-
+        
+        # Calculate confidence scores
+        confidence_scores = np.max(y_pred_prob, axis=1)
+        avg_confidence = float(np.mean(confidence_scores))
+        
+        # Build comprehensive summary
         known_mask = ~unknown_flags
         known_labels = y_pred_labels[known_mask]
-
+        
+        # Count each attack type
         unique, counts = np.unique(known_labels, return_counts=True)
-        for u, c in zip(unique, counts):
-            if u != 'normal':
-                summary[f'known_attack_{u}'] = int(c)
-
-        summary['normal'] = int(np.sum(known_labels == 'normal'))
-
-        return jsonify({"summary": summary})
-
+        attack_breakdown = {}
+        for attack_type, count in zip(unique, counts):
+            attack_breakdown[str(attack_type)] = int(count)
+        
+        # Calculate processing time
+        processing_time = time.time() - start_time
+        
+        # Build response
+        summary = {
+            'total_samples': len(df),
+            'unknown_attacks': int(np.sum(unknown_flags)),
+            'normal': attack_breakdown.get('normal', 0),
+            'attack_breakdown': attack_breakdown,
+            'confidence': {
+                'average': round(avg_confidence, 4),
+                'min': round(float(np.min(confidence_scores)), 4),
+                'max': round(float(np.max(confidence_scores)), 4)
+            },
+            'metadata': {
+                'processing_time_seconds': round(processing_time, 3),
+                'model_version': APP_VERSION,
+                'threshold': RECONSTRUCTION_THRESHOLD,
+                'timestamp': datetime.now().isoformat(),
+                'filename': filename
+            }
+        }
+        
+        logger.info(f"Analysis completed in {processing_time:.2f}s - "
+                   f"{summary['total_samples']} samples, "
+                   f"{summary.get('normal', 0)} normal, "
+                   f"{summary['unknown_attacks']} unknown attacks")
+        
+        return jsonify({
+            "status": "success",
+            "message": SUCCESS_MESSAGES['PREDICTION_SUCCESS'],
+            "summary": summary
+        }), 200
+        
+    except pd.errors.EmptyDataError:
+        logger.error("Empty CSV file")
+        return jsonify({
+            "error": ERROR_MESSAGES['EMPTY_FILE'],
+            "message": "The CSV file contains no data"
+        }), 400
+        
+    except pd.errors.ParserError as e:
+        logger.error(f"CSV parsing error: {str(e)}")
+        return jsonify({
+            "error": ERROR_MESSAGES['PROCESSING_ERROR'],
+            "message": f"Failed to parse CSV file: {str(e)}"
+        }), 400
+        
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Prediction error: {str(e)}", exc_info=True)
+        return jsonify({
+            "error": ERROR_MESSAGES['MODEL_ERROR'],
+            "message": str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
