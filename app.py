@@ -347,5 +347,19 @@ def predict_csv():
             "message": str(e)
         }), 500
 
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    logger.info("="*60)
+    logger.info(f"🚀 Starting {APP_NAME} v{APP_VERSION}")
+    logger.info(f"🌐 Server: http://{HOST}:{PORT}")
+    logger.info(f"🔧 Debug Mode: {DEBUG_MODE}")
+    logger.info(f"📊 Models Status: {'Loaded ✓' if models_loaded else 'Failed ✗'}")
+    logger.info("="*60)
+    
+    app.run(
+        host=HOST,
+        port=PORT,
+        debug=DEBUG_MODE,
+        threaded=True
+    )
+
