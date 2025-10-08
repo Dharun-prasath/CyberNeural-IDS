@@ -72,19 +72,19 @@ def load_models():
         
         # Load models
         ae_model = tf.keras.models.load_model(str(AE_MODEL_PATH), compile=False)
-        logger.info(f"✓ Autoencoder model loaded successfully")
+        logger.info("[OK] Autoencoder model loaded successfully")
         
         cnn_lstm_model = tf.keras.models.load_model(str(CNN_LSTM_MODEL_PATH))
-        logger.info(f"✓ CNN-LSTM model loaded successfully")
+        logger.info("[OK] CNN-LSTM model loaded successfully")
         
         scaler = joblib.load(str(SCALER_PATH))
-        logger.info(f"✓ Scaler loaded successfully")
+        logger.info("[OK] Scaler loaded successfully")
         
         le_attack = joblib.load(str(LABEL_ENCODER_PATH))
-        logger.info(f"✓ Label encoder loaded successfully")
+        logger.info("[OK] Label encoder loaded successfully")
         
         models_loaded = True
-        logger.info("All models loaded successfully! 🚀")
+        logger.info("All models loaded successfully!")
         return True
         
     except Exception as e:
@@ -349,12 +349,12 @@ def predict_csv():
 
 
 if __name__ == '__main__':
-    logger.info("="*60)
-    logger.info(f"🚀 Starting {APP_NAME} v{APP_VERSION}")
-    logger.info(f"🌐 Server: http://{HOST}:{PORT}")
-    logger.info(f"🔧 Debug Mode: {DEBUG_MODE}")
-    logger.info(f"📊 Models Status: {'Loaded ✓' if models_loaded else 'Failed ✗'}")
-    logger.info("="*60)
+    logger.info("=" * 60)
+    logger.info(f"[STARTING] {APP_NAME} v{APP_VERSION}")
+    logger.info(f"[SERVER] http://{HOST}:{PORT}")
+    logger.info(f"[DEBUG MODE] {DEBUG_MODE}")
+    logger.info(f"[MODELS] {'Loaded' if models_loaded else 'Failed'}")
+    logger.info("=" * 60)
     
     app.run(
         host=HOST,
