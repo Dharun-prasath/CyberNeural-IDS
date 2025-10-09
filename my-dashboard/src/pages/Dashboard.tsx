@@ -325,16 +325,37 @@ const Dashboard: React.FC = () => {
       setUploadProgress(90);
       
       // Transform summary into table rows with enhanced data
-      const rows = Object.entries(data.summary)
-        .filter(([key]) => key !== 'total_samples')
-        .map(([key, value], idx) => ({
-          id: idx + 1,
-          category: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          count: value as number,
-          status: key === 'normal' ? 'Safe' : 'Malicious'
-        }));
+      const summary = data.summary || data;
       
-      setAnalysisResults(rows);
+      // Handle nested objects in backend response
+      const rows = Object.entries(summary)
+        .filter(([key]) => !['total_samples', 'confidence', 'metadata', 'attack_breakdown'].includes(key))
+        .map(([key, value], idx) => {
+          // Extract numeric value if it's nested
+          const count = typeof value === 'object' ? 0 : (value as number);
+          return {
+            id: idx + 1,
+            category: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            count: count,
+            status: key === 'normal' ? 'Safe' : 'Malicious'
+          };
+        })
+        .filter(row => row.count > 0); // Remove zero count rows
+      
+      // If attack_breakdown exists, use it instead
+      if (summary.attack_breakdown) {
+        const breakdownRows = Object.entries(summary.attack_breakdown)
+          .map(([key, value], idx) => ({
+            id: idx + 1,
+            category: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            count: value as number,
+            status: key === 'normal' ? 'Safe' : 'Malicious'
+          }));
+        setAnalysisResults(breakdownRows);
+      } else {
+        setAnalysisResults(rows);
+      }
+      
       setUploadProgress(100);
       
       const threatCount = rows.filter(r => r.status === 'Malicious').length;
@@ -467,8 +488,10 @@ const Dashboard: React.FC = () => {
           }}
         >
           <Toolbar>
-            <SecurityIcon sx={{ mr: 1 }} />
-            <Typography variant="h6" noWrap sx={{ fontWeight: 600 }}>CyberNeural-IDS</Typography>
+            <SecurityIcon sx={{ mr: 1, fontSize: 28 }} />
+            <Typography variant="h6" noWrap sx={{ fontWeight: 600 }}>
+              LAN Security
+            </Typography>
           </Toolbar>
           <Divider />
           <List>
@@ -506,9 +529,9 @@ const Dashboard: React.FC = () => {
         >
           <StyledAppBar position="fixed" sx={{ zIndex: 1201, ml: `${drawerWidth}px`, width: `calc(100% - ${drawerWidth}px)` }}>
             <Toolbar>
-              
+              <SecurityIcon sx={{ mr: 2, fontSize: 28 }} />
               <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
-                LAN SECURITY ANALYZER DASHBAORD
+                LAN Security Analyzer Dashboard
               </Typography>
             </Toolbar>
           </StyledAppBar>
@@ -721,9 +744,19 @@ const Dashboard: React.FC = () => {
                       columns={columns}
                       getRowClassName={(params) => params.row.status === 'Malicious' ? 'malicious-row' : 'safe-row'}
                       sx={{
-                        height: 320,
-                        '.malicious-row': { bgcolor: '#f8d7da', color: '#721c24' },
-                        '.safe-row': { bgcolor: '#d4edda', color: '#155724' },
+                        minHeight: 320,
+                        '.malicious-row': { 
+                          bgcolor: mode === 'dark' ? 'rgba(244, 67, 54, 0.15)' : '#ffebee',
+                          '&:hover': {
+                            bgcolor: mode === 'dark' ? 'rgba(244, 67, 54, 0.25)' : '#ffcdd2',
+                          }
+                        },
+                        '.safe-row': { 
+                          bgcolor: mode === 'dark' ? 'rgba(76, 175, 80, 0.15)' : '#e8f5e9',
+                          '&:hover': {
+                            bgcolor: mode === 'dark' ? 'rgba(76, 175, 80, 0.25)' : '#c8e6c9',
+                          }
+                        },
                       }}
                       initialState={{ pagination: { paginationModel: { pageSize: 5 } } }}
                       pageSizeOptions={[5, 10, 25]}
@@ -731,11 +764,21 @@ const Dashboard: React.FC = () => {
                       disableColumnMenu
                     />
                   </Box>
-                  <Box sx={{ flex: '0 0 300px' }}>
+                  <Box sx={{ 
+                    flex: '0 0 300px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    minHeight: 320 
+                  }}>
                     <PieChart
-                      series={[{ data: pieData }]}
+                      series={[{ 
+                        data: pieData,
+                        highlightScope: { fade: 'global', highlight: 'item' },
+                      }]}
                       width={300}
-                      height={200}
+                      height={280}
+                      margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
                     />
                   </Box>
                 </Box>
