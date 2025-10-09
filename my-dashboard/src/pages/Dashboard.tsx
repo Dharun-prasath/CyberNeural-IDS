@@ -138,8 +138,12 @@ const toCsvString = (rows: Array<{ category: string; count: number; status: stri
     .map(r => r.join(',')).join('\n');
 
 // Calculate statistics from analysis results
-const calculateStats = (results: Array<{ status: string; count: number }>): AnalysisStats => {
-  const totalSamples = results.reduce((sum, row) => sum + row.count, 0);
+const calculateStats = (
+  results: Array<{ status: string; count: number }>, 
+  backendTotal: number = 0
+): AnalysisStats => {
+  // Use backend total if available, otherwise sum from results
+  const totalSamples = backendTotal > 0 ? backendTotal : results.reduce((sum, row) => sum + row.count, 0);
   const normalCount = results.find(row => row.status === 'Safe')?.count || 0;
   const threatCount = totalSamples - normalCount;
   const threatPercentage = totalSamples > 0 ? (threatCount / totalSamples) * 100 : 0;
@@ -195,6 +199,7 @@ const Dashboard: React.FC = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
+  const [totalSamples, setTotalSamples] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [snackbar, setSnackbar] = useState<{
@@ -209,8 +214,8 @@ const Dashboard: React.FC = () => {
   const [search, setSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Calculate statistics
-  const stats = useMemo(() => calculateStats(analysisResults), [analysisResults]);
+  // Calculate statistics with backend total
+  const stats = useMemo(() => calculateStats(analysisResults, totalSamples), [analysisResults, totalSamples]);
 
   // Enhanced CSV upload handler with validation
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,6 +286,7 @@ const Dashboard: React.FC = () => {
     setCsvFile(null);
     setPreviewData([]);
     setAnalysisResults([]);
+    setTotalSamples(0);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setSnackbar({ 
       open: true, 
@@ -327,6 +333,10 @@ const Dashboard: React.FC = () => {
       // Transform summary into table rows with enhanced data
       const summary = data.summary || data;
       console.log('Backend response:', summary); // Debug log
+      
+      // Store the total samples from backend
+      const backendTotalSamples = summary.total_samples || 0;
+      setTotalSamples(backendTotalSamples);
       
       let rows: Array<{ id: number; category: string; count: number; status: string }> = [];
       
