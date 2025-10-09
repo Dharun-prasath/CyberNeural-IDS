@@ -468,7 +468,7 @@ const Dashboard: React.FC = () => {
         >
           <Toolbar>
             <SecurityIcon sx={{ mr: 1 }} />
-            <Typography variant="h6" noWrap sx={{ fontWeight: 600 }}>L.A.N. Analyzer</Typography>
+            <Typography variant="h6" noWrap sx={{ fontWeight: 600 }}>CyberNeural-IDS</Typography>
           </Toolbar>
           <Divider />
           <List>
