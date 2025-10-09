@@ -506,9 +506,9 @@ const Dashboard: React.FC = () => {
         >
           <StyledAppBar position="fixed" sx={{ zIndex: 1201, ml: `${drawerWidth}px`, width: `calc(100% - ${drawerWidth}px)` }}>
             <Toolbar>
-              <SecurityIcon sx={{ mr: 2, fontSize: 28 }} />
+              
               <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
-                LAN Security Analyzer Dashboard
+                LAN SECURITY ANALYZER DASHBAORD
               </Typography>
             </Toolbar>
           </StyledAppBar>
