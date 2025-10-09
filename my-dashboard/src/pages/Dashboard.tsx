@@ -326,42 +326,55 @@ const Dashboard: React.FC = () => {
       
       // Transform summary into table rows with enhanced data
       const summary = data.summary || data;
+      console.log('Backend response:', summary); // Debug log
       
-      // Handle nested objects in backend response
-      const rows = Object.entries(summary)
-        .filter(([key]) => !['total_samples', 'confidence', 'metadata', 'attack_breakdown'].includes(key))
-        .map(([key, value], idx) => {
-          // Extract numeric value if it's nested
-          const count = typeof value === 'object' ? 0 : (value as number);
-          return {
-            id: idx + 1,
-            category: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            count: count,
-            status: key === 'normal' ? 'Safe' : 'Malicious'
-          };
-        })
-        .filter(row => row.count > 0); // Remove zero count rows
+      let rows: Array<{ id: number; category: string; count: number; status: string }> = [];
       
-      // If attack_breakdown exists, use it instead
-      if (summary.attack_breakdown) {
-        const breakdownRows = Object.entries(summary.attack_breakdown)
+      // If attack_breakdown exists (new backend format), use it
+      if (summary.attack_breakdown && typeof summary.attack_breakdown === 'object') {
+        rows = Object.entries(summary.attack_breakdown)
           .map(([key, value], idx) => ({
             id: idx + 1,
             category: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-            count: value as number,
-            status: key === 'normal' ? 'Safe' : 'Malicious'
-          }));
-        setAnalysisResults(breakdownRows);
+            count: typeof value === 'number' ? value : 0,
+            status: key.toLowerCase() === 'normal' ? 'Safe' : 'Malicious'
+          }))
+          .filter(row => row.count > 0);
+        
+        // Add unknown attacks if present
+        if (summary.unknown_attacks && summary.unknown_attacks > 0) {
+          rows.push({
+            id: rows.length + 1,
+            category: 'Unknown Attacks',
+            count: summary.unknown_attacks,
+            status: 'Malicious'
+          });
+        }
       } else {
-        setAnalysisResults(rows);
+        // Fallback: parse old format
+        rows = Object.entries(summary)
+          .filter(([key]) => !['total_samples', 'confidence', 'metadata', 'attack_breakdown'].includes(key))
+          .map(([key, value], idx) => {
+            const count = typeof value === 'object' ? 0 : (value as number);
+            return {
+              id: idx + 1,
+              category: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              count: count,
+              status: key === 'normal' ? 'Safe' : 'Malicious'
+            };
+          })
+          .filter(row => row.count > 0);
       }
       
+      setAnalysisResults(rows);
       setUploadProgress(100);
       
       const threatCount = rows.filter(r => r.status === 'Malicious').length;
+      const totalThreats = rows.filter(r => r.status === 'Malicious').reduce((sum, r) => sum + r.count, 0);
+      
       setSnackbar({
         open: true, 
-        message: `Analysis complete! Found ${threatCount} threat categories.`, 
+        message: `Analysis complete! Found ${threatCount} threat categories with ${totalThreats} malicious samples.`, 
         severity: 'success'
       });
     } catch (err: any) {
@@ -445,13 +458,21 @@ const Dashboard: React.FC = () => {
   const pieData = useMemo(() => {
     let safe = 0;
     let malicious = 0;
+    
     analysisResults.forEach((row: { status: string; count: number }) => {
+      const count = typeof row.count === 'number' ? row.count : 0;
       if (row.status === 'Safe') {
-        safe += row.count;
+        safe += count;
       } else {
-        malicious += row.count;
+        malicious += count;
       }
     });
+    
+    // Only return data if we have values
+    if (safe === 0 && malicious === 0) {
+      return [];
+    }
+    
     return [
       { 
         id: 0, 
@@ -465,7 +486,7 @@ const Dashboard: React.FC = () => {
         label: `Malicious (${malicious})`, 
         color: '#f44336' 
       },
-    ];
+    ].filter(item => item.value > 0); // Only show non-zero slices
   }, [analysisResults]);
 
   // Theme toggle handler
@@ -771,15 +792,21 @@ const Dashboard: React.FC = () => {
                     justifyContent: 'center',
                     minHeight: 320 
                   }}>
-                    <PieChart
-                      series={[{ 
-                        data: pieData,
-                        highlightScope: { fade: 'global', highlight: 'item' },
-                      }]}
-                      width={300}
-                      height={280}
-                      margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-                    />
+                    {pieData.length > 0 ? (
+                      <PieChart
+                        series={[{ 
+                          data: pieData,
+                          highlightScope: { fade: 'global', highlight: 'item' },
+                        }]}
+                        width={300}
+                        height={280}
+                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No data to display
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               </AnimatedPaper>
