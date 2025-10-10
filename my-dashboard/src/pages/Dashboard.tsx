@@ -521,7 +521,7 @@ const Dashboard: React.FC = () => {
           <Toolbar>
             <SecurityIcon sx={{ mr: 1, fontSize: 28 }} />
             <Typography variant="h6" noWrap sx={{ fontWeight: 600 }}>
-              LAN Security
+              CyberNeural-IDS
             </Typography>
           </Toolbar>
           <Divider />
