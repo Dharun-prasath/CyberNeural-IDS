@@ -348,6 +348,263 @@ def predict_csv():
         }), 500
 
 
+# ============================================================================
+# REAL-TIME NETWORK MONITORING ENDPOINTS
+# ============================================================================
+
+# Import network monitor (optional - only if scapy is installed)
+try:
+    from network_monitor import NetworkMonitor
+    NETWORK_MONITOR_AVAILABLE = True
+    network_monitor = None
+    monitor_results = []
+    monitor_lock = __import__('threading').Lock()
+except ImportError:
+    NETWORK_MONITOR_AVAILABLE = False
+    logger.warning("Network monitoring not available. Install scapy: pip install scapy")
+
+def process_live_packets(df: pd.DataFrame):
+    """
+    Callback function to process live network packets
+    
+    Args:
+        df: DataFrame with packet features
+    """
+    global monitor_results
+    
+    if not models_loaded:
+        logger.warning("Models not loaded, skipping packet processing")
+        return
+    
+    try:
+        # One-hot encode categorical columns
+        df_encoded = pd.get_dummies(df, columns=CATEGORICAL_COLUMNS)
+        
+        # Align with training columns
+        train_columns = scaler.feature_names_in_
+        for col in train_columns:
+            if col not in df_encoded.columns:
+                df_encoded[col] = 0
+        df_encoded = df_encoded[train_columns]
+        
+        # Scale features
+        X_scaled = scaler.transform(df_encoded.values)
+        
+        # Autoencoder prediction
+        X_recon = ae_model.predict(X_scaled, verbose=0)
+        recon_error = np.mean(np.power(X_scaled - X_recon, 2), axis=1)
+        unknown_flags = recon_error > RECONSTRUCTION_THRESHOLD
+        
+        # CNN-LSTM prediction
+        X_seq = X_scaled.reshape(X_scaled.shape[0], 1, X_scaled.shape[1])
+        y_pred_prob = cnn_lstm_model.predict(X_seq, verbose=0)
+        y_pred_classes = np.argmax(y_pred_prob, axis=1)
+        y_pred_labels = le_attack.inverse_transform(y_pred_classes)
+        confidence_scores = np.max(y_pred_prob, axis=1)
+        
+        # Store results
+        with monitor_lock:
+            for i in range(len(df)):
+                result = {
+                    'timestamp': datetime.now().isoformat(),
+                    'protocol': df.iloc[i].get('protocol_type', 'unknown'),
+                    'service': df.iloc[i].get('service', 'unknown'),
+                    'prediction': 'unknown' if unknown_flags[i] else str(y_pred_labels[i]),
+                    'confidence': float(confidence_scores[i]),
+                    'is_threat': unknown_flags[i] or (y_pred_labels[i] != 'normal'),
+                    'reconstruction_error': float(recon_error[i])
+                }
+                monitor_results.append(result)
+            
+            # Keep only last 1000 results
+            if len(monitor_results) > 1000:
+                monitor_results = monitor_results[-1000:]
+        
+        logger.info(f"Processed {len(df)} live packets")
+        
+    except Exception as e:
+        logger.error(f"Error processing live packets: {e}", exc_info=True)
+
+@app.route('/monitor/start', methods=['POST'])
+def start_monitoring():
+    """Start live network monitoring"""
+    global network_monitor, monitor_results
+    
+    if not NETWORK_MONITOR_AVAILABLE:
+        return jsonify({
+            "error": "Network monitoring not available",
+            "message": "Please install scapy: pip install scapy"
+        }), 503
+    
+    if not models_loaded:
+        return jsonify({
+            "error": "Models not loaded",
+            "message": "Cannot start monitoring without loaded models"
+        }), 503
+    
+    # Parse request parameters
+    data = request.get_json() or {}
+    interface = data.get('interface', None)
+    buffer_size = data.get('buffer_size', 100)
+    
+    # Check if already monitoring
+    if network_monitor and network_monitor.is_monitoring:
+        return jsonify({
+            "error": "Monitoring already active",
+            "stats": network_monitor.get_stats()
+        }), 400
+    
+    try:
+        # Create new monitor instance
+        network_monitor = NetworkMonitor(interface=interface, buffer_size=buffer_size)
+        network_monitor.set_callback(process_live_packets)
+        
+        # Clear previous results
+        with monitor_lock:
+            monitor_results = []
+        
+        # Start monitoring
+        success = network_monitor.start_monitoring()
+        
+        if success:
+            logger.info(f"Started network monitoring on interface: {interface or 'all'}")
+            return jsonify({
+                "status": "success",
+                "message": "Network monitoring started",
+                "interface": interface or "all",
+                "buffer_size": buffer_size,
+                "timestamp": datetime.now().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                "error": "Failed to start monitoring",
+                "message": "Check logs for details"
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error starting monitoring: {e}", exc_info=True)
+        return jsonify({
+            "error": "Failed to start monitoring",
+            "message": str(e)
+        }), 500
+
+@app.route('/monitor/stop', methods=['POST'])
+def stop_monitoring():
+    """Stop live network monitoring"""
+    global network_monitor
+    
+    if not NETWORK_MONITOR_AVAILABLE:
+        return jsonify({
+            "error": "Network monitoring not available"
+        }), 503
+    
+    if not network_monitor or not network_monitor.is_monitoring:
+        return jsonify({
+            "error": "Monitoring not active"
+        }), 400
+    
+    try:
+        # Force process remaining buffer
+        network_monitor.force_process_buffer()
+        
+        # Stop monitoring
+        success = network_monitor.stop_monitoring()
+        
+        if success:
+            final_stats = network_monitor.get_stats()
+            logger.info("Stopped network monitoring")
+            
+            return jsonify({
+                "status": "success",
+                "message": "Network monitoring stopped",
+                "final_stats": final_stats,
+                "timestamp": datetime.now().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                "error": "Failed to stop monitoring"
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error stopping monitoring: {e}", exc_info=True)
+        return jsonify({
+            "error": "Failed to stop monitoring",
+            "message": str(e)
+        }), 500
+
+@app.route('/monitor/status', methods=['GET'])
+def monitor_status():
+    """Get current monitoring status"""
+    if not NETWORK_MONITOR_AVAILABLE:
+        return jsonify({
+            "available": False,
+            "message": "Network monitoring not available. Install scapy."
+        }), 200
+    
+    if not network_monitor:
+        return jsonify({
+            "available": True,
+            "is_monitoring": False,
+            "message": "Monitor not initialized"
+        }), 200
+    
+    stats = network_monitor.get_stats()
+    
+    with monitor_lock:
+        recent_threats = sum(1 for r in monitor_results if r['is_threat'])
+        total_analyzed = len(monitor_results)
+    
+    return jsonify({
+        "available": True,
+        "is_monitoring": network_monitor.is_monitoring,
+        "stats": stats,
+        "analysis": {
+            "total_analyzed": total_analyzed,
+            "threats_detected": recent_threats,
+            "threat_rate": (recent_threats / total_analyzed * 100) if total_analyzed > 0 else 0
+        },
+        "timestamp": datetime.now().isoformat()
+    }), 200
+
+@app.route('/monitor/results', methods=['GET'])
+def monitor_results_endpoint():
+    """Get recent monitoring results"""
+    if not NETWORK_MONITOR_AVAILABLE:
+        return jsonify({
+            "error": "Network monitoring not available"
+        }), 503
+    
+    # Get query parameters
+    limit = request.args.get('limit', 100, type=int)
+    threats_only = request.args.get('threats_only', 'false').lower() == 'true'
+    
+    with monitor_lock:
+        results = monitor_results.copy()
+    
+    # Filter if needed
+    if threats_only:
+        results = [r for r in results if r['is_threat']]
+    
+    # Limit results
+    results = results[-limit:]
+    
+    # Calculate summary
+    total = len(results)
+    threats = sum(1 for r in results if r['is_threat'])
+    
+    return jsonify({
+        "status": "success",
+        "results": results,
+        "summary": {
+            "total_results": total,
+            "threats": threats,
+            "safe": total - threats,
+            "threat_rate": (threats / total * 100) if total > 0 else 0
+        },
+        "timestamp": datetime.now().isoformat()
+    }), 200
+
+
 if __name__ == '__main__':
     logger.info("=" * 60)
     logger.info(f"[STARTING] {APP_NAME} v{APP_VERSION}")
