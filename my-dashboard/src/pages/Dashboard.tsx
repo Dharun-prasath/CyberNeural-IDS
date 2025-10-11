@@ -432,7 +432,7 @@ const Dashboard: React.FC = () => {
         throw new Error(error.message || 'Failed to start monitoring');
       }
 
-      const data = await response.json();
+      await response.json();
       setIsMonitoring(true);
       setSnackbar({
         open: true,
