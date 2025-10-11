@@ -771,6 +771,203 @@ const Dashboard: React.FC = () => {
             </Box>
           </AnimatedPaper>
 
+          {/* Live Network Monitoring Section */}
+          <AnimatedPaper sx={{ p: 2, mb: 2, borderRadius: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <SecurityIcon color="primary" />
+                Live Network Monitoring
+                {isMonitoring && (
+                  <Chip 
+                    label="ACTIVE" 
+                    color="success" 
+                    size="small" 
+                    sx={{ ml: 1, animation: 'pulse 2s infinite' }}
+                  />
+                )}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                {!isMonitoring ? (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    onClick={startMonitoring}
+                    disabled={loading || !monitoringAvailable}
+                    startIcon={loading ? <CircularProgress size={16} /> : <SecurityIcon />}
+                    sx={{ textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Start Monitoring
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="error"
+                    onClick={stopMonitoring}
+                    disabled={loading}
+                    startIcon={loading ? <CircularProgress size={16} /> : <SecurityIcon />}
+                    sx={{ textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Stop Monitoring
+                  </Button>
+                )}
+                {!monitoringAvailable && (
+                  <Tooltip title="Scapy not installed or admin privileges required">
+                    <InfoIcon color="warning" />
+                  </Tooltip>
+                )}
+              </Box>
+            </Box>
+
+            {/* Monitoring Stats */}
+            {isMonitoring && monitoringStats && (
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                <StyledPaper 
+                  sx={{ 
+                    p: 2, 
+                    flex: '1 1 200px',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)'
+                      : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>Total Packets</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {formatNumber(monitoringStats.stats?.total_packets || 0)}
+                  </Typography>
+                </StyledPaper>
+                
+                <StyledPaper 
+                  sx={{ 
+                    p: 2, 
+                    flex: '1 1 200px',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, #7c2d12 0%, #991b1b 100%)'
+                      : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>Threats Detected</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {formatNumber(monitoringStats.analysis?.threats_detected || 0)}
+                  </Typography>
+                </StyledPaper>
+
+                <StyledPaper 
+                  sx={{ 
+                    p: 2, 
+                    flex: '1 1 200px',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, #065f46 0%, #047857 100%)'
+                      : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>Threat Rate</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {(monitoringStats.analysis?.threat_rate || 0).toFixed(1)}%
+                  </Typography>
+                </StyledPaper>
+
+                <StyledPaper 
+                  sx={{ 
+                    p: 2, 
+                    flex: '1 1 200px',
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, #4338ca 0%, #4f46e5 100%)'
+                      : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                    color: 'white'
+                  }}
+                >
+                  <Typography variant="caption" sx={{ opacity: 0.9 }}>Packets/sec</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                    {((monitoringStats.stats?.total_packets || 0) / Math.max(monitoringStats.stats?.uptime_seconds || 1, 1)).toFixed(1)}
+                  </Typography>
+                </StyledPaper>
+              </Box>
+            )}
+
+            {/* Live Threats Table */}
+            {isMonitoring && liveThreats.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+                  Recent Detections ({liveThreats.length})
+                </Typography>
+                <TableContainer sx={{ maxHeight: 400 }}>
+                  <Table stickyHeader size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Time</TableCell>
+                        <TableCell>Protocol</TableCell>
+                        <TableCell>Service</TableCell>
+                        <TableCell>Prediction</TableCell>
+                        <TableCell>Confidence</TableCell>
+                        <TableCell>Status</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {liveThreats.slice(-20).reverse().map((threat, idx) => (
+                        <TableRow 
+                          key={idx}
+                          sx={{
+                            backgroundColor: threat.is_threat 
+                              ? (darkMode ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)')
+                              : 'inherit'
+                          }}
+                        >
+                          <TableCell>
+                            <Typography variant="caption">
+                              {new Date(threat.timestamp).toLocaleTimeString()}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={threat.protocol} size="small" variant="outlined" />
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={threat.service} size="small" variant="outlined" />
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={threat.prediction} 
+                              size="small"
+                              color={threat.is_threat ? 'error' : 'success'}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {(threat.confidence * 100).toFixed(1)}%
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={threat.is_threat ? 'THREAT' : 'SAFE'}
+                              size="small"
+                              color={threat.is_threat ? 'error' : 'success'}
+                              sx={{ fontWeight: 600 }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+
+            {!isMonitoring && !monitoringAvailable && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  <strong>Network monitoring unavailable.</strong> Please ensure:
+                </Typography>
+                <ul style={{ marginTop: '8px', marginBottom: 0 }}>
+                  <li>Scapy is installed: <code>pip install scapy</code></li>
+                  <li>Npcap/WinPcap is installed on Windows</li>
+                  <li>Running with administrator privileges</li>
+                </ul>
+              </Alert>
+            )}
+          </AnimatedPaper>
+
           {/* Preview Table */}
           {previewData.length > 0 && (
             <AnimatedPaper sx={{ p: 2, mb: 2 }}>
