@@ -1,5 +1,6 @@
 // Dashboard.tsx - Professional LAN Security Analyzer
 import React, { useState, useRef, useCallback, useMemo } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   CssBaseline,
@@ -649,12 +650,12 @@ const Dashboard: React.FC = () => {
           <Divider />
           <List>
             {[
-              { text: 'Dashboard', icon: <DashboardIcon /> },
-              { text: 'Reports', icon: <BarChartIcon /> },
-              { text: 'Settings', icon: <SettingsIcon /> }
+              { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+              { text: 'Reports', icon: <BarChartIcon />, path: '/reports' },
+              { text: 'Settings', icon: <SettingsIcon />, path: '/settings' }
             ].map(item => (
               <ListItem key={item.text} disablePadding>
-                <ListItemButton>
+                <ListItemButton component={RouterLink} to={item.path}>
                   <ListItemIcon sx={{ color: 'inherit' }}>
                     {item.icon}
                   </ListItemIcon>
