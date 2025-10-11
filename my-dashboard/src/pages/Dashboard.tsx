@@ -214,6 +214,13 @@ const Dashboard: React.FC = () => {
   const [search, setSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Live monitoring state
+  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [monitoringStats, setMonitoringStats] = useState<any>(null);
+  const [liveThreats, setLiveThreats] = useState<any[]>([]);
+  const [monitoringAvailable, setMonitoringAvailable] = useState(true);
+  const monitoringIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   // Calculate statistics with backend total
   const stats = useMemo(() => calculateStats(analysisResults, totalSamples), [analysisResults, totalSamples]);
 
@@ -399,6 +406,121 @@ const Dashboard: React.FC = () => {
       setTimeout(() => setUploadProgress(0), 1000);
     }
   };
+
+  // Live monitoring functions
+  const checkMonitoringAvailability = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:5000/monitor/status');
+      const data = await response.json();
+      setMonitoringAvailable(data.available !== false);
+    } catch (err) {
+      setMonitoringAvailable(false);
+    }
+  }, []);
+
+  const startMonitoring = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:5000/monitor/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interface: null, buffer_size: 100 })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to start monitoring');
+      }
+
+      const data = await response.json();
+      setIsMonitoring(true);
+      setSnackbar({
+        open: true,
+        message: 'Live network monitoring started successfully',
+        severity: 'success'
+      });
+
+      // Start polling for updates every 3 seconds
+      monitoringIntervalRef.current = setInterval(async () => {
+        try {
+          // Get monitoring status
+          const statusRes = await fetch('http://localhost:5000/monitor/status');
+          const statusData = await statusRes.json();
+          setMonitoringStats(statusData);
+
+          // Get latest threats
+          const resultsRes = await fetch('http://localhost:5000/monitor/results?limit=50&threats_only=false');
+          const resultsData = await resultsRes.json();
+          if (resultsData.results) {
+            setLiveThreats(resultsData.results);
+          }
+        } catch (err) {
+          console.error('Error polling monitoring data:', err);
+        }
+      }, 3000);
+
+    } catch (err: any) {
+      setSnackbar({
+        open: true,
+        message: err.message || 'Failed to start monitoring. Ensure scapy is installed and you have admin privileges.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const stopMonitoring = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Stop polling
+      if (monitoringIntervalRef.current) {
+        clearInterval(monitoringIntervalRef.current);
+        monitoringIntervalRef.current = null;
+      }
+
+      const response = await fetch('http://localhost:5000/monitor/stop', {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to stop monitoring');
+      }
+
+      const data = await response.json();
+      setIsMonitoring(false);
+      setSnackbar({
+        open: true,
+        message: `Monitoring stopped. ${data.final_stats?.total_packets || 0} packets captured.`,
+        severity: 'info'
+      });
+
+    } catch (err: any) {
+      setSnackbar({
+        open: true,
+        message: err.message || 'Failed to stop monitoring',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Check monitoring availability on mount
+  React.useEffect(() => {
+    checkMonitoringAvailability();
+  }, [checkMonitoringAvailability]);
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (monitoringIntervalRef.current) {
+        clearInterval(monitoringIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Download results with enhanced metadata
   const downloadResults = useCallback(() => {
