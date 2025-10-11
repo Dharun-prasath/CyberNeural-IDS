@@ -4,7 +4,6 @@ import {
   Box,
   Paper,
   Typography,
-  Grid2 as Grid,
   Card,
   CardContent,
   Tabs,
@@ -23,6 +22,7 @@ import {
   Tooltip,
   IconButton,
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import { styled } from '@mui/material/styles';
 import {
   BarChart,
@@ -210,7 +210,7 @@ const Reports: React.FC = () => {
 
       {/* Summary Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard>
             <CardContent>
               <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
@@ -226,7 +226,7 @@ const Reports: React.FC = () => {
           </StatCard>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard sx={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
             <CardContent>
               <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
@@ -249,7 +249,7 @@ const Reports: React.FC = () => {
           </StatCard>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard sx={{ background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)' }}>
             <CardContent>
               <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
@@ -265,7 +265,7 @@ const Reports: React.FC = () => {
           </StatCard>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard sx={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
             <CardContent>
               <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
@@ -300,7 +300,7 @@ const Reports: React.FC = () => {
         {/* Tab 1: Trends & History */}
         <TabPanel value={tabValue} index={0}>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TimelineIcon color="primary" />
                 Network Activity Trends (Last 5 Days)
@@ -328,7 +328,7 @@ const Reports: React.FC = () => {
               </ResponsiveContainer>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Attack Type Distribution Over Time
               </Typography>
@@ -347,7 +347,7 @@ const Reports: React.FC = () => {
               </ResponsiveContainer>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Daily Analysis Summary
               </Typography>
@@ -391,7 +391,7 @@ const Reports: React.FC = () => {
         {/* Tab 2: Threat Analysis */}
         <TabPanel value={tabValue} index={1}>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <PieChartIcon color="primary" />
                 Threat Distribution
@@ -417,7 +417,7 @@ const Reports: React.FC = () => {
               </ResponsiveContainer>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom>
                 Threat Severity Levels
               </Typography>
@@ -455,7 +455,7 @@ const Reports: React.FC = () => {
               </Alert>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Detailed Threat Breakdown
               </Typography>
@@ -509,7 +509,7 @@ const Reports: React.FC = () => {
         {/* Tab 3: Protocol & Services */}
         <TabPanel value={tabValue} index={2}>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <SecurityIcon color="primary" />
                 Protocol Statistics
@@ -527,7 +527,7 @@ const Reports: React.FC = () => {
               </ResponsiveContainer>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom>
                 Protocol Summary
               </Typography>
@@ -566,7 +566,7 @@ const Reports: React.FC = () => {
               </TableContainer>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Service-Level Analysis
               </Typography>
@@ -624,7 +624,7 @@ const Reports: React.FC = () => {
         {/* Tab 4: Performance Metrics */}
         <TabPanel value={tabValue} index={3}>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <AssessmentIcon color="primary" />
                 System Performance Metrics
@@ -665,7 +665,7 @@ const Reports: React.FC = () => {
               </Box>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom>
                 Model Performance Radar
               </Typography>
@@ -681,7 +681,7 @@ const Reports: React.FC = () => {
               </ResponsiveContainer>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Alert severity="success" sx={{ mt: 2 }}>
                 <Typography variant="body2">
                   <strong>System Status: Optimal</strong> - All performance metrics are within acceptable ranges. Continue monitoring for any degradation.
@@ -694,7 +694,7 @@ const Reports: React.FC = () => {
 
       {/* Additional Insights Section */}
       <Grid container spacing={3} sx={{ mt: 2 }}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <StyledPaper>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <SecurityIcon color="primary" />
@@ -726,7 +726,7 @@ const Reports: React.FC = () => {
           </StyledPaper>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <StyledPaper>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <InfoIcon color="primary" />
@@ -768,3 +768,4 @@ const Reports: React.FC = () => {
 };
 
 export default Reports;
+
